@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}AI Chat – LearnMate{% endblock %}
+{% block page_title %}<i class="bi bi-chat-dots-fill me-2"></i>AI Coach{% endblock %}
+
+{% block head_extra %}
+<!-- Marked.js for markdown rendering -->
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="chat-layout">
+
+  <!-- ── Sidebar panel ─────────────────────────────────────────── -->
+  <div class="chat-sidebar glass d-none d-xl-flex">
+    <div class="cs-title">
+      <i class="bi bi-stars text-accent me-2"></i>AI Coach Tips
+    </div>
+    <ul class="cs-tips">
+      <li>Tell me your <strong>experience level</strong> so I can personalise.</li>
+      <li>Ask for a <strong>full roadmap</strong> for any tech domain.</li>
+      <li>Request <strong>free resources</strong> for budget-friendly learning.</li>
+      <li>Ask me to review your <strong>project ideas</strong>.</li>
+      <li>I can suggest <strong>certifications</strong> for your career goal.</li>
+    </ul>
+
+    <div class="cs-divider"></div>
+    <div class="cs-title">Suggested Questions</div>
+    <div class="suggested-questions" id="suggestedQs">
+      {% set suggestions = [
+        "Build me a 6-month roadmap for Data Science",
+        "What are the best free React courses?",
+        "What certifications should I get for cloud computing?",
+        "How many hours per week should I study to become a developer?",
+        "What projects should I build to get a job in AI?",
+        "Explain the difference between ML and Deep Learning",
+        "I'm a beginner – where do I start with cybersecurity?"
+      ] %}
+      {% for s in suggestions %}
+        <button class="suggested-btn" onclick="sendSuggestion(this)">{{ s }}</button>
+      {% endfor %}
+    </div>
+
+    <div class="cs-divider"></div>
+    <button class="btn btn-sm btn-danger-soft w-100" id="clearChatBtn">
+      <i class="bi bi-trash3 me-2"></i>Clear Chat
+    </button>
+  </div>
+
+  <!-- ── Chat window ────────────────────────────────────────────── -->
+  <div class="chat-main">
+    <div class="chat-window glass" id="chatWindow">
+      <div class="chat-messages" id="chatMessages">
+        {% for msg in history %}
+          <div class="msg-row {{ 'msg-user' if msg.role == 'user' else 'msg-bot' }}">
+            {% if msg.role == 'assistant' %}
+              <div class="msg-avatar-icon"><i class="bi bi-robot"></i></div>
+            {% endif %}
+            <div class="msg-bubble {{ 'bubble-user' if msg.role == 'user' else 'bubble-bot' }}
+                         {{ 'typed' if msg.role == 'assistant' }}"
+                 data-raw="{{ msg.content | e }}">
+              {{ msg.content | e }}
+            </div>
+            {% if msg.role == 'user' %}
+              <div class="msg-avatar-user"
+                   style="background:{{ profile.avatar_color | default('#3b82d4') }}">
+                {{ (profile.name | default('L'))[0] | upper }}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+
+      <!-- Typing indicator -->
+      <div class="typing-indicator" id="typingIndicator" style="display:none">
+        <div class="msg-avatar-icon"><i class="bi bi-robot"></i></div>
+        <div class="typing-dots">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input bar -->
+    <div class="chat-input-bar glass">
+      <!-- Mobile suggestions -->
+      <div class="mobile-suggestions d-xl-none" id="mobileSuggestions">
+        {% for s in [
+          "Build me a roadmap for Data Science",
+          "Best free React courses?",
+          "Where do I start with AI?"] %}
+          <button class="suggested-btn-sm" onclick="sendSuggestion(this)">{{ s }}</button>
+        {% endfor %}
+      </div>
+      <form id="chatForm" class="chat-form">
+        <button type="button" class="btn btn-sm icon-btn d-xl-none" id="mobileTipsBtn"
+                title="Show suggestions">
+          <i class="bi bi-lightbulb-fill text-warning"></i>
+        </button>
+        <textarea id="chatInput" class="chat-textarea" rows="1"
+                  placeholder="Ask your AI coach anything…"
+                  maxlength="2000"></textarea>
+        <button type="submit" class="btn btn-primary send-btn" id="sendBtn">
+          <i class="bi bi-send-fill"></i>
+        </button>
+      </form>
+      <div class="input-meta d-flex justify-content-between px-1 mt-1">
+        <span class="text-muted small">
+          <i class="bi bi-shield-check me-1 text-success"></i>
+          Powered by IBM Granite via watsonx.ai
+        </span>
+        <span class="text-muted small" id="charCount">0/2000</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+<script>
+function sendSuggestion(el) {
+  const input = document.getElementById('chatInput');
+  input.value = el.textContent.trim();
+  input.dispatchEvent(new Event('input'));
+  document.getElementById('chatForm').dispatchEvent(new Event('submit'));
+}
+
+document.getElementById('clearChatBtn')?.addEventListener('click', async () => {
+  if (!confirm('Clear the entire conversation?')) return;
+  await fetch('/api/clear-chat', { method: 'POST' });
+  document.getElementById('chatMessages').innerHTML = '';
+  window.location.reload();
+});
+
+document.getElementById('mobileTipsBtn')?.addEventListener('click', () => {
+  const el = document.getElementById('mobileSuggestions');
+  el.style.display = el.style.display === 'none' ? 'flex' : 'none';
+});
+</script>
+{% endblock %}

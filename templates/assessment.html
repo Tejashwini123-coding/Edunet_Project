@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% block title %}Skill Assessment – LearnMate{% endblock %}
+{% block page_title %}<i class="bi bi-clipboard2-check-fill me-2"></i>Skill Assessment{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-4">
+
+  <!-- ── Header ────────────────────────────────────────────────────── -->
+  <div class="glass p-4 mb-4 animate-in">
+    <div class="d-flex flex-wrap gap-3 align-items-center">
+      <div class="flex-grow-1">
+        <h4 class="fw-700 mb-1">{{ domain }} Assessment</h4>
+        <p class="text-muted mb-0 small">
+          {{ questions | length }} questions · ~5 minutes · Identifies your skill level and gaps
+        </p>
+      </div>
+      <div>
+        <select class="form-select form-select-sm glass-input" id="domainSwitch" onchange="switchDomain(this.value)">
+          {% for d in domains %}
+            <option {% if d == domain %}selected{% endif %}>{{ d }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Quiz form (pre-results) ───────────────────────────────────── -->
+  <div id="quizSection">
+    <form id="assessmentForm">
+      <input type="hidden" id="assessDomain" value="{{ domain }}" />
+
+      {% for q in questions %}
+        <div class="question-card glass animate-in mb-3" style="--delay:{{ loop.index0 * 0.05 }}s"
+             id="q{{ loop.index0 }}">
+          <div class="question-header">
+            <span class="q-num">Q{{ loop.index }}</span>
+            <div class="question-text">{{ q.q }}</div>
+          </div>
+          <div class="options-grid">
+            {% for opt in q.options %}
+              <label class="option-label" for="q{{ loop.index0 }}_o{{ loop.index0 }}">
+                <input type="radio" class="option-radio" name="q{{ loop.index0 }}"
+                       id="q{{ loop.index0 }}_o{{ loop.index0 }}"
+                       value="{{ loop.index0 }}" required />
+                <span class="option-letter">{{ ['A','B','C','D'][loop.index0] }}</span>
+                <span class="option-text">{{ opt }}</span>
+              </label>
+            {% endfor %}
+          </div>
+        </div>
+      {% endfor %}
+
+      <div class="text-center mt-4 mb-5">
+        <button type="submit" class="btn btn-primary btn-lg btn-glow" id="submitBtn">
+          <i class="bi bi-send-check-fill me-2"></i>Submit Assessment
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ── Results panel (shown after submit) ───────────────────────── -->
+  <div id="resultsSection" style="display:none">
+    <div class="results-banner glass animate-in mb-4">
+      <div class="text-center">
+        <div class="score-circle" id="scoreCircle">
+          <svg viewBox="0 0 120 120" class="score-svg">
+            <circle cx="60" cy="60" r="54" class="score-bg"/>
+            <circle cx="60" cy="60" r="54" class="score-arc" id="scoreArc"/>
+          </svg>
+          <div class="score-inner">
+            <div class="score-pct" id="scorePct">0%</div>
+            <div class="score-label">Score</div>
+          </div>
+        </div>
+        <h4 class="fw-700 mt-3" id="resultLevel">Analysing…</h4>
+        <p class="text-muted" id="resultEncouragement"></p>
+      </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+      <div class="col-md-6">
+        <div class="card-panel glass animate-in">
+          <div class="panel-header">
+            <h5 class="panel-title"><i class="bi bi-check2-circle me-2 text-success"></i>Strengths</h5>
+          </div>
+          <div class="panel-body" id="strengthsList">
+            <div class="text-muted small">Loading…</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card-panel glass animate-in">
+          <div class="panel-header">
+            <h5 class="panel-title"><i class="bi bi-exclamation-triangle-fill me-2 text-warning"></i>Skill Gaps</h5>
+          </div>
+          <div class="panel-body" id="gapsList">
+            <div class="text-muted small">Loading…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+      <div class="col-md-6">
+        <div class="card-panel glass animate-in">
+          <div class="panel-header">
+            <h5 class="panel-title"><i class="bi bi-arrow-right-circle-fill me-2 text-accent"></i>Next Steps</h5>
+          </div>
+          <div class="panel-body" id="nextStepsList">
+            <div class="text-muted small">Loading…</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card-panel glass animate-in">
+          <div class="panel-header">
+            <h5 class="panel-title"><i class="bi bi-journal-bookmark-fill me-2 text-purple"></i>Recommended Resources</h5>
+          </div>
+          <div class="panel-body" id="resourcesList">
+            <div class="text-muted small">Loading…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center mt-2 mb-5">
+      <button class="btn btn-outline-accent me-2" onclick="retakeAssessment()">
+        <i class="bi bi-arrow-repeat me-2"></i>Retake
+      </button>
+      <a href="/roadmap" class="btn btn-primary btn-glow">
+        <i class="bi bi-map-fill me-2"></i>View Roadmap
+      </a>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Build answer key from Jinja
+const ANSWER_KEY = [
+  {% for q in questions %}
+  {{ q.answer }}{% if not loop.last %},{% endif %}
+  {% endfor %}
+];
+const QUESTIONS = {{ questions | tojson }};
+const DOMAIN = "{{ domain }}";
+
+document.getElementById('assessmentForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Analysing…';
+
+  const answers = [];
+  QUESTIONS.forEach((q, i) => {
+    const sel = document.querySelector(`input[name="q${i}"]:checked`);
+    const chosen = sel ? parseInt(sel.value) : -1;
+    answers.push({
+      question: q.q,
+      answer: q.options[chosen] || 'No answer',
+      correct: chosen === ANSWER_KEY[i]
+    });
+    // Show correct/wrong styling
+    document.querySelectorAll(`input[name="q${i}"]`).forEach((radio, idx) => {
+      const label = radio.closest('.option-label');
+      if (idx === ANSWER_KEY[i]) label.classList.add('correct');
+      else if (radio.checked && idx !== ANSWER_KEY[i]) label.classList.add('wrong');
+    });
+  });
+
+  try {
+    const res = await fetch('/api/assess', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ domain: DOMAIN, answers })
+    });
+    const data = await res.json();
+    renderResults(data);
+  } catch(err) {
+    alert('Error submitting assessment. Please try again.');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-send-check-fill me-2"></i>Submit Assessment';
+  }
+});
+
+function renderResults(data) {
+  document.getElementById('quizSection').style.display = 'none';
+  document.getElementById('resultsSection').style.display = 'block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // Score circle
+  const pct = data.percentage || 0;
+  document.getElementById('scorePct').textContent = pct + '%';
+  document.getElementById('resultLevel').textContent = data.level + ' Level';
+  document.getElementById('resultEncouragement').textContent = data.encouragement || '';
+
+  // SVG arc animation
+  const arc = document.getElementById('scoreArc');
+  const circumference = 2 * Math.PI * 54;
+  arc.style.strokeDasharray = `${circumference * pct / 100} ${circumference}`;
+  arc.style.stroke = pct >= 75 ? '#2ea043' : pct >= 40 ? '#e3b341' : '#3b82d4';
+
+  // Lists
+  renderList('strengthsList', data.strengths || [], 'success', 'bi-check-circle-fill');
+  renderList('gapsList', data.skill_gaps || [], 'warning', 'bi-exclamation-circle-fill');
+  renderList('nextStepsList', data.next_steps || [], 'accent', 'bi-arrow-right-circle-fill');
+  renderList('resourcesList', data.recommended_resources || [], 'purple', 'bi-journal-bookmark-fill');
+}
+
+function renderList(id, items, colorClass, icon) {
+  const el = document.getElementById(id);
+  if (!items.length) { el.innerHTML = '<p class="text-muted small">None identified.</p>'; return; }
+  el.innerHTML = items.map(item =>
+    `<div class="result-list-item"><i class="bi ${icon} text-${colorClass} me-2"></i>${item}</div>`
+  ).join('');
+}
+
+function retakeAssessment() {
+  document.getElementById('quizSection').style.display = 'block';
+  document.getElementById('resultsSection').style.display = 'none';
+  document.getElementById('assessmentForm').reset();
+  document.querySelectorAll('.option-label').forEach(l => {
+    l.classList.remove('correct','wrong');
+  });
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = false;
+  btn.innerHTML = '<i class="bi bi-send-check-fill me-2"></i>Submit Assessment';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function switchDomain(val) {
+  window.location.href = '/assessment?domain=' + encodeURIComponent(val);
+}
+</script>
+{% endblock %}

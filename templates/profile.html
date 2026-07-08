@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+{% block title %}My Profile – LearnMate{% endblock %}
+{% block page_title %}<i class="bi bi-person-circle me-2"></i>My Profile{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-4">
+  <div class="row g-4">
+
+    <!-- ── Left: Profile card ────────────────────────────────────── -->
+    <div class="col-lg-4">
+      <div class="profile-card glass animate-in text-center">
+        <!-- Avatar with colour picker -->
+        <div class="profile-avatar-lg mx-auto mb-3"
+             id="profileAvatarLg"
+             style="background: {{ profile.avatar_color | default('#3b82d4') }}">
+          <span id="avatarInitial">{{ (profile.name | default('L'))[0] | upper }}</span>
+          <label class="avatar-color-picker" title="Change colour">
+            <input type="color" id="avatarColorInput" value="{{ profile.avatar_color | default('#3b82d4') }}" />
+            <i class="bi bi-palette-fill"></i>
+          </label>
+        </div>
+        <h4 class="fw-700 mb-1" id="displayName">{{ profile.name | default('Learner') }}</h4>
+        <p class="text-accent mb-1 fw-500" id="displayGoal">{{ profile.career_goal | default('Software Developer') }}</p>
+        <p class="text-muted small mb-3" id="displayDomain">{{ profile.domain | default('Full Stack Development') }}</p>
+
+        <div class="profile-stats row g-2 mb-4">
+          <div class="col-4">
+            <div class="pstat-val" id="psStreak">{{ profile.streak | default(0) }}</div>
+            <div class="pstat-label">Streak</div>
+          </div>
+          <div class="col-4">
+            <div class="pstat-val" id="psCompleted">{{ profile.completed_courses | default([]) | length }}</div>
+            <div class="pstat-label">Done</div>
+          </div>
+          <div class="col-4">
+            <div class="pstat-val" id="psBadges">{{ profile.badges | default([]) | length }}</div>
+            <div class="pstat-label">Badges</div>
+          </div>
+        </div>
+
+        <div class="text-muted small mb-2">
+          <i class="bi bi-calendar3 me-1"></i>
+          Joined {{ profile.joined | default('today') }}
+        </div>
+        <div class="text-muted small">
+          <i class="bi bi-clock me-1"></i>
+          Last active {{ profile.last_active | default('today') }}
+        </div>
+      </div>
+
+      <!-- Badges -->
+      <div class="card-panel glass animate-in mt-4" style="--delay:.10s">
+        <div class="panel-header">
+          <h6 class="panel-title"><i class="bi bi-trophy-fill me-2 text-warning"></i>Earned Badges</h6>
+        </div>
+        <div class="panel-body">
+          {% if profile.badges %}
+            <div class="badge-list-profile">
+              {% for badge in profile.badges %}
+                <span class="earned-badge">{{ badge }}</span>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="text-muted small text-center mt-2">
+              Complete courses to earn badges!
+            </p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Right: Edit form ──────────────────────────────────────── -->
+    <div class="col-lg-8">
+      <div class="card-panel glass animate-in" style="--delay:.05s">
+        <div class="panel-header">
+          <h5 class="panel-title"><i class="bi bi-pencil-fill me-2 text-accent"></i>Edit Profile</h5>
+        </div>
+        <div class="panel-body">
+          <form id="profileForm">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label fw-500">Full Name</label>
+                <input type="text" class="form-control glass-input" id="pfName"
+                       value="{{ profile.name | default('') }}" maxlength="60" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-500">Email (optional)</label>
+                <input type="email" class="form-control glass-input" id="pfEmail"
+                       value="{{ profile.email | default('') }}" maxlength="100" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-500">Career Goal</label>
+                <input type="text" class="form-control glass-input" id="pfGoal"
+                       value="{{ profile.career_goal | default('') }}" maxlength="80" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-500">Target Domain</label>
+                <select class="form-select glass-input" id="pfDomain">
+                  {% for d in domains %}
+                    <option {% if d == profile.domain %}selected{% endif %}>{{ d }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-500">Experience Level</label>
+                <select class="form-select glass-input" id="pfLevel">
+                  {% for l in ['Beginner','Intermediate','Advanced'] %}
+                    <option {% if l == profile.experience_level %}selected{% endif %}>{{ l }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-500">Learning Style</label>
+                <select class="form-select glass-input" id="pfStyle">
+                  {% for s in learning_styles %}
+                    <option {% if s == profile.learning_style %}selected{% endif %}>{{ s }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-500">Hours / Week</label>
+                <input type="number" class="form-control glass-input" id="pfHours"
+                       value="{{ profile.weekly_hours | default(10) }}" min="1" max="80" />
+              </div>
+              <div class="col-12">
+                <label class="form-label fw-500">Background / Notes</label>
+                <textarea class="form-control glass-input" id="pfBackground" rows="3"
+                          maxlength="500"
+                          placeholder="E.g. CS degree, 2 years of self-study, working as designer…">{{ profile.background | default('') }}</textarea>
+              </div>
+            </div>
+
+            <div class="d-flex gap-2 mt-4">
+              <button type="submit" class="btn btn-primary btn-glow">
+                <i class="bi bi-save-fill me-2"></i>Save Changes
+              </button>
+              <button type="button" class="btn btn-outline-accent" id="generateRoadmapBtn">
+                <i class="bi bi-magic me-2"></i>Generate Roadmap
+              </button>
+            </div>
+            <div id="saveMsg" class="mt-2" style="display:none"></div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Bookmarks -->
+      <div class="card-panel glass animate-in mt-4" style="--delay:.15s">
+        <div class="panel-header">
+          <h5 class="panel-title"><i class="bi bi-bookmarks-fill me-2 text-warning"></i>Bookmarked Courses</h5>
+        </div>
+        <div class="panel-body" id="bookmarksList">
+          {% if profile.bookmarks %}
+            {% for bm in profile.bookmarks %}
+              <div class="bookmark-item d-flex align-items-center justify-content-between mb-2">
+                <span><i class="bi bi-bookmark-fill text-warning me-2"></i>{{ bm }}</span>
+                <button class="btn btn-xs btn-danger-soft" onclick="removeBookmark('{{ bm | e }}')">
+                  <i class="bi bi-x"></i>
+                </button>
+              </div>
+            {% endfor %}
+          {% else %}
+            <p class="text-muted small text-center">No bookmarks yet.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Demo: complete a course -->
+      <div class="card-panel glass animate-in mt-4" style="--delay:.20s">
+        <div class="panel-header">
+          <h5 class="panel-title"><i class="bi bi-check2-all me-2 text-success"></i>Track Completed Courses</h5>
+        </div>
+        <div class="panel-body">
+          <div class="d-flex gap-2">
+            <input type="text" class="form-control glass-input" id="completeCourseInput"
+                   placeholder="Enter course name you completed…" maxlength="100" />
+            <button class="btn btn-success btn-sm" id="completeCourseBtn">
+              <i class="bi bi-plus-lg"></i>
+            </button>
+          </div>
+          <div id="completedList" class="mt-3">
+            {% for c in profile.completed_courses | default([]) %}
+              <span class="completed-tag">✓ {{ c }}</span>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Save profile
+document.getElementById('profileForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const payload = {
+    name: document.getElementById('pfName').value.trim(),
+    email: document.getElementById('pfEmail').value.trim(),
+    career_goal: document.getElementById('pfGoal').value.trim(),
+    domain: document.getElementById('pfDomain').value,
+    experience_level: document.getElementById('pfLevel').value,
+    learning_style: document.getElementById('pfStyle').value,
+    weekly_hours: parseInt(document.getElementById('pfHours').value) || 10,
+    background: document.getElementById('pfBackground').value.trim(),
+    avatar_color: document.getElementById('avatarColorInput').value,
+  };
+  const res = await fetch('/api/update-profile', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  const msg = document.getElementById('saveMsg');
+  if (data.status === 'updated') {
+    msg.innerHTML = '<div class="alert alert-success py-2">✓ Profile saved!</div>';
+    msg.style.display = 'block';
+    // Update display
+    document.getElementById('displayName').textContent = payload.name || 'Learner';
+    document.getElementById('displayGoal').textContent = payload.career_goal;
+    document.getElementById('displayDomain').textContent = payload.domain;
+    document.getElementById('avatarInitial').textContent = (payload.name || 'L')[0].toUpperCase();
+    document.getElementById('profileAvatarLg').style.background = payload.avatar_color;
+    document.getElementById('sidebarAvatar').style.background = payload.avatar_color;
+    setTimeout(() => { msg.style.display = 'none'; }, 3000);
+  }
+});
+
+// Avatar colour picker
+document.getElementById('avatarColorInput').addEventListener('input', (e) => {
+  document.getElementById('profileAvatarLg').style.background = e.target.value;
+});
+
+// Generate roadmap redirect
+document.getElementById('generateRoadmapBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('generateRoadmapBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating…';
+  const res = await fetch('/api/generate-roadmap', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({})
+  });
+  if (res.ok) window.location.href = '/roadmap';
+  else { btn.disabled = false; btn.innerHTML = '<i class="bi bi-magic me-2"></i>Generate Roadmap'; }
+});
+
+// Complete a course
+document.getElementById('completeCourseBtn').addEventListener('click', async () => {
+  const input = document.getElementById('completeCourseInput');
+  const course = input.value.trim();
+  if (!course) return;
+  const res = await fetch('/api/complete-course', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ course })
+  });
+  const data = await res.json();
+  const list = document.getElementById('completedList');
+  list.innerHTML += `<span class="completed-tag">✓ ${course}</span>`;
+  input.value = '';
+  document.getElementById('psCompleted').textContent = data.completed;
+  document.getElementById('statCompleted').textContent = data.completed;
+  document.getElementById('psBadges').textContent = data.badges.length;
+});
+
+// Remove bookmark
+async function removeBookmark(course) {
+  await fetch('/api/bookmark', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ course })
+  });
+  window.location.reload();
+}
+</script>
+{% endblock %}

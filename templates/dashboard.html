@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+{% block title %}Dashboard – LearnMate{% endblock %}
+{% block page_title %}<i class="bi bi-grid-1x2-fill me-2"></i>Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-4">
+
+  <!-- ── Welcome Banner ──────────────────────────────────────────── -->
+  <div class="welcome-banner glass mb-4 animate-in">
+    <div class="welcome-text">
+      <h1 class="welcome-heading">
+        Welcome back, <span class="accent">{{ profile.name | default('Learner') }}</span>! 👋
+      </h1>
+      <p class="welcome-sub">
+        You're on a <strong>{{ profile.streak | default(0) }}-day</strong> learning streak.
+        Keep it up – consistency is the key to mastery.
+      </p>
+      <a href="{{ url_for('main.chat') }}" class="btn btn-primary btn-glow mt-2">
+        <i class="bi bi-chat-dots-fill me-2"></i>Chat with AI Coach
+      </a>
+      <a href="{{ url_for('main.roadmap') }}" class="btn btn-outline-accent ms-2 mt-2">
+        <i class="bi bi-map-fill me-2"></i>View Roadmap
+      </a>
+    </div>
+    <div class="welcome-illustration">
+      <i class="bi bi-mortarboard-fill display-1 text-accent opacity-25"></i>
+    </div>
+  </div>
+
+  <!-- ── Stat Cards ───────────────────────────────────────────────── -->
+  <div class="row g-4 mb-4">
+    <div class="col-6 col-lg-3">
+      <div class="stat-card glass animate-in" style="--delay:.05s">
+        <div class="stat-icon bg-accent-soft"><i class="bi bi-fire text-accent"></i></div>
+        <div class="stat-value" id="statStreak">{{ profile.streak | default(0) }}</div>
+        <div class="stat-label">Day Streak</div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="stat-card glass animate-in" style="--delay:.10s">
+        <div class="stat-icon bg-success-soft"><i class="bi bi-check-circle-fill text-success"></i></div>
+        <div class="stat-value" id="statCompleted">{{ profile.completed_courses | default([]) | length }}</div>
+        <div class="stat-label">Courses Done</div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="stat-card glass animate-in" style="--delay:.15s">
+        <div class="stat-icon bg-warning-soft"><i class="bi bi-bookmark-fill text-warning"></i></div>
+        <div class="stat-value" id="statBookmarks">{{ profile.bookmarks | default([]) | length }}</div>
+        <div class="stat-label">Bookmarks</div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="stat-card glass animate-in" style="--delay:.20s">
+        <div class="stat-icon bg-purple-soft"><i class="bi bi-award-fill text-purple"></i></div>
+        <div class="stat-value" id="statBadges">{{ profile.badges | default([]) | length }}</div>
+        <div class="stat-label">Badges</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Main Grid ────────────────────────────────────────────────── -->
+  <div class="row g-4 mb-4">
+
+    <!-- Progress Chart -->
+    <div class="col-lg-5">
+      <div class="card-panel glass animate-in h-100" style="--delay:.25s">
+        <div class="panel-header">
+          <h5 class="panel-title"><i class="bi bi-bar-chart-fill me-2 text-accent"></i>Skill Progress</h5>
+          <a href="{{ url_for('main.assessment') }}" class="btn btn-xs btn-outline-accent">Take Test</a>
+        </div>
+        <div class="panel-body chart-container">
+          <canvas id="skillChart"></canvas>
+          <p class="text-muted text-center mt-3 small" id="noChartMsg"
+             {% if profile.progress %}style="display:none"{% endif %}>
+            Complete an assessment to see your progress here.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Current Path -->
+    <div class="col-lg-7">
+      <div class="card-panel glass animate-in h-100" style="--delay:.30s">
+        <div class="panel-header">
+          <h5 class="panel-title"><i class="bi bi-map-fill me-2 text-accent"></i>Learning Path</h5>
+          <a href="{{ url_for('main.roadmap') }}" class="btn btn-xs btn-outline-accent">Full Roadmap</a>
+        </div>
+        <div class="panel-body">
+          {% if profile.get('progress') %}
+            <div class="path-progress mb-3">
+              <div class="d-flex justify-content-between mb-1">
+                <span class="small fw-500">Overall Progress</span>
+                <span class="small text-accent fw-600" id="overallPct">
+                  {% set vals = profile.progress.values() | list %}
+                  {% if vals %}{{ (vals | sum // vals | length) }}%{% else %}0%{% endif %}
+                </span>
+              </div>
+              <div class="progress-track">
+                <div class="progress-fill"
+                     style="width:{% set vals = profile.progress.values() | list %}{% if vals %}{{ vals | sum // vals | length }}{% else %}0{% endif %}%"></div>
+              </div>
+            </div>
+          {% endif %}
+
+          <div class="timeline">
+            <div class="timeline-item active">
+              <div class="tl-dot accent"></div>
+              <div class="tl-content">
+                <div class="tl-title">🌱 Beginner Phase</div>
+                <div class="tl-desc">Core concepts & tools setup</div>
+                <span class="tl-badge">Weeks 1-4</span>
+              </div>
+            </div>
+            <div class="timeline-item {% if (profile.progress.values() | list | sum // (profile.progress.values() | list | length + 0.001)) >= 40 %}active{% endif %}">
+              <div class="tl-dot {% if (profile.progress.values() | list | sum // (profile.progress.values() | list | length + 0.001)) >= 40 %}accent{% else %}muted{% endif %}"></div>
+              <div class="tl-content">
+                <div class="tl-title">⚡ Intermediate Phase</div>
+                <div class="tl-desc">Applied skills & first projects</div>
+                <span class="tl-badge">Weeks 5-12</span>
+              </div>
+            </div>
+            <div class="timeline-item {% if (profile.progress.values() | list | sum // (profile.progress.values() | list | length + 0.001)) >= 75 %}active{% endif %}">
+              <div class="tl-dot {% if (profile.progress.values() | list | sum // (profile.progress.values() | list | length + 0.001)) >= 75 %}accent{% else %}muted{% endif %}"></div>
+              <div class="tl-content">
+                <div class="tl-title">🏆 Advanced Phase</div>
+                <div class="tl-desc">Specialisation & portfolio</div>
+                <span class="tl-badge">Weeks 13-24</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Generate roadmap CTA if none yet -->
+          <div class="text-center mt-4" id="generateCTA">
+            <button class="btn btn-primary btn-sm btn-glow" id="dashGenerateBtn">
+              <i class="bi bi-magic me-2"></i>Generate My Roadmap with AI
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Bottom Row ────────────────────────────────────────────────── -->
+  <div class="row g-4 mb-4">
+
+    <!-- Weekly Planner -->
+    <div class="col-lg-6">
+      <div class="card-panel glass animate-in" style="--delay:.35s">
+        <div class="panel-header">
+          <h5 class="panel-title"><i class="bi bi-calendar3 me-2 text-accent"></i>Weekly Planner</h5>
+        </div>
+        <div class="panel-body">
+          <div class="weekly-grid" id="weeklyGrid">
+            {% set days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] %}
+            {% for day in days %}
+              <div class="day-cell {% if loop.index == 6 or loop.index == 7 %}weekend{% endif %}">
+                <div class="day-name">{{ day }}</div>
+                <div class="day-task">
+                  {% if loop.index < 6 %}Study &amp; Practice{% else %}Review &amp; Rest{% endif %}
+                </div>
+                <div class="day-hours small text-muted">
+                  {{ ((profile.weekly_hours | default(10)) // 5) }} hrs
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+          <p class="text-muted small mt-3 text-center">
+            Generate a roadmap to get a personalised weekly plan.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Badges & Achievements -->
+    <div class="col-lg-6">
+      <div class="card-panel glass animate-in" style="--delay:.40s">
+        <div class="panel-header">
+          <h5 class="panel-title"><i class="bi bi-trophy-fill me-2 text-warning"></i>Achievements</h5>
+        </div>
+        <div class="panel-body">
+          <div class="badge-grid" id="badgeGrid">
+            {% set all_badges = [
+              ("🌱","First Step","Complete your first course"),
+              ("🔥","On Fire","Complete 5 courses"),
+              ("⭐","Star Learner","Complete 10 courses"),
+              ("🏆","Champion","Complete 25 courses"),
+              ("💎","Diamond Achiever","Complete 50 courses"),
+              ("🎯","Goal Setter","Set a career goal"),
+              ("📅","Consistent","Maintain a 7-day streak"),
+              ("🗺️","Pathfinder","Generate your first roadmap")
+            ] %}
+            {% for emoji, name, desc in all_badges %}
+              {% set earned_names = profile.badges | default([]) | join(' ') %}
+              <div class="badge-item {% if name in earned_names %}earned{% endif %}" title="{{ desc }}">
+                <div class="badge-emoji">{{ emoji }}</div>
+                <div class="badge-name small">{{ name }}</div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Quick Start AI ─────────────────────────────────────────────── -->
+  <div class="quick-chat glass animate-in mb-4" style="--delay:.45s">
+    <div class="quick-chat-inner">
+      <i class="bi bi-stars text-accent fs-4 me-3"></i>
+      <div class="flex-grow-1">
+        <div class="fw-600">Ask your AI Coach anything</div>
+        <div class="text-muted small">Career advice, course recommendations, skill gaps, project ideas…</div>
+      </div>
+      <a href="{{ url_for('main.chat') }}" class="btn btn-primary btn-glow">
+        Start Chat <i class="bi bi-arrow-right ms-1"></i>
+      </a>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const progressData = {{ profile.progress | default({}) | tojson }};
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Skill radar/bar chart
+  const ctx = document.getElementById('skillChart');
+  if (ctx && Object.keys(progressData).length) {
+    document.getElementById('noChartMsg').style.display = 'none';
+    const labels = Object.keys(progressData);
+    const values = Object.values(progressData);
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Score (%)',
+          data: values,
+          backgroundColor: labels.map(() => 'rgba(59,130,212,0.7)'),
+          borderColor: labels.map(() => '#3b82d4'),
+          borderWidth: 2,
+          borderRadius: 8,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: {
+            beginAtZero: true, max: 100,
+            grid: { color: 'rgba(255,255,255,0.05)' },
+            ticks: { color: '#8b949e', callback: v => v + '%' }
+          },
+          x: { grid: { display: false }, ticks: { color: '#8b949e' } }
+        }
+      }
+    });
+  }
+
+  // Dashboard "Generate Roadmap" button
+  const btn = document.getElementById('dashGenerateBtn');
+  if (btn) {
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating…';
+      try {
+        const res = await fetch('/api/generate-roadmap', { method: 'POST',
+          headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+        if (res.ok) { window.location.href = '/roadmap'; }
+        else { btn.disabled = false; btn.innerHTML = '<i class="bi bi-magic me-2"></i>Try Again'; }
+      } catch { btn.disabled = false; btn.innerHTML = '<i class="bi bi-magic me-2"></i>Try Again'; }
+    });
+  }
+});
+</script>
+{% endblock %}

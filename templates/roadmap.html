@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+{% block title %}Learning Roadmap – LearnMate{% endblock %}
+{% block page_title %}<i class="bi bi-map-fill me-2"></i>Learning Roadmap{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-4">
+
+  <!-- ── Controls ─────────────────────────────────────────────────── -->
+  <div class="roadmap-controls glass mb-4 animate-in">
+    <div class="d-flex flex-wrap gap-3 align-items-center">
+      <div class="flex-grow-1">
+        <h5 class="mb-1 fw-700">
+          {% if roadmap %}
+            {{ roadmap.domain }} Roadmap for {{ roadmap.student }}
+          {% else %}
+            Generate Your Personalised Roadmap
+          {% endif %}
+        </h5>
+        <p class="text-muted mb-0 small">
+          {% if roadmap %}
+            {{ roadmap.total_weeks }} weeks · {{ roadmap.estimated_completion }}
+          {% else %}
+            Let the AI build a custom path based on your profile.
+          {% endif %}
+        </p>
+      </div>
+      <div class="d-flex gap-2 flex-wrap">
+        {% if roadmap %}
+          <a href="/api/download-roadmap" class="btn btn-success btn-sm">
+            <i class="bi bi-file-earmark-pdf-fill me-1"></i>Download PDF
+          </a>
+        {% endif %}
+        <button class="btn btn-primary btn-sm btn-glow" id="generateBtn">
+          <i class="bi bi-magic me-1"></i>
+          {% if roadmap %}Regenerate{% else %}Generate Roadmap{% endif %}
+        </button>
+      </div>
+    </div>
+
+    <!-- Override form -->
+    <div class="mt-3 row g-2" id="overrideForm">
+      <div class="col-6 col-md-3">
+        <select class="form-select form-select-sm glass-input" id="rmDomain">
+          <option value="">Use Profile Domain</option>
+          {% for d in domains %}<option>{{ d }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <select class="form-select form-select-sm glass-input" id="rmLevel">
+          <option value="">Use Profile Level</option>
+          <option>Beginner</option><option>Intermediate</option><option>Advanced</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-3">
+        <input type="text" class="form-control form-control-sm glass-input"
+               id="rmGoal" placeholder="Career goal override" maxlength="80" />
+      </div>
+      <div class="col-6 col-md-2">
+        <input type="number" class="form-control form-control-sm glass-input"
+               id="rmHours" placeholder="Hours/week" min="1" max="80" />
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Loading spinner ──────────────────────────────────────────── -->
+  <div id="roadmapLoading" class="text-center py-5" style="display:none">
+    <div class="ai-spinner mb-4">
+      <div class="spinner-ring"></div>
+      <i class="bi bi-mortarboard-fill spinner-icon text-accent"></i>
+    </div>
+    <h5 class="text-accent fw-600">AI is crafting your personalised roadmap…</h5>
+    <p class="text-muted">This may take 10–20 seconds.</p>
+  </div>
+
+  <!-- ── Empty state ───────────────────────────────────────────────── -->
+  {% if not roadmap %}
+  <div id="emptyState" class="text-center py-5 animate-in">
+    <i class="bi bi-map display-1 text-muted opacity-50"></i>
+    <h4 class="mt-3 fw-600 text-muted">No roadmap yet</h4>
+    <p class="text-muted">Click <strong>Generate Roadmap</strong> above to get started.</p>
+  </div>
+  {% endif %}
+
+  <!-- ── Roadmap content ───────────────────────────────────────────── -->
+  <div id="roadmapContent" {% if not roadmap %}style="display:none"{% endif %}>
+
+    {% if roadmap %}
+    <!-- Summary cards -->
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-3">
+        <div class="stat-card glass text-center animate-in" style="--delay:.05s">
+          <div class="stat-value text-accent">{{ roadmap.total_weeks }}</div>
+          <div class="stat-label">Total Weeks</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card glass text-center animate-in" style="--delay:.10s">
+          <div class="stat-value text-success">{{ roadmap.phases | length }}</div>
+          <div class="stat-label">Phases</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card glass text-center animate-in" style="--delay:.15s">
+          <div class="stat-value text-warning">
+            {% set total_r = namespace(n=0) %}
+            {% for ph in roadmap.phases %}
+              {% set total_r.n = total_r.n + (ph.resources | length) %}
+            {% endfor %}
+            {{ total_r.n }}
+          </div>
+          <div class="stat-label">Resources</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card glass text-center animate-in" style="--delay:.20s">
+          <div class="stat-value text-purple">{{ roadmap.certifications | default([]) | length }}</div>
+          <div class="stat-label">Certifications</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="glass p-3 mb-4 animate-in" style="--delay:.25s">
+      <div class="d-flex justify-content-between mb-2">
+        <span class="fw-600">Roadmap Progress</span>
+        <span class="text-accent fw-700" id="roadmapPct">0%</span>
+      </div>
+      <div class="progress-track lg">
+        <div class="progress-fill" id="roadmapProgressBar" style="width:0%"></div>
+      </div>
+    </div>
+
+    <!-- Phase timeline -->
+    <div class="phase-timeline mb-4">
+      {% for phase in roadmap.phases %}
+        {% set phase_colors = {'Beginner':'accent','Intermediate':'warning','Advanced':'success'} %}
+        {% set color = phase_colors.get(phase.phase, 'accent') %}
+        <div class="phase-card glass animate-in" style="--delay:{{ 0.30 + loop.index0 * 0.08 }}s">
+          <div class="phase-header bg-{{ color }}-soft">
+            <div class="phase-badge bg-{{ color }}">{{ loop.index }}</div>
+            <div>
+              <div class="phase-name">{{ phase.phase }} Phase</div>
+              <div class="phase-weeks text-muted small">Weeks {{ phase.weeks }}</div>
+            </div>
+            <div class="ms-auto">
+              <button class="btn btn-xs btn-outline-{{ color }} phase-toggle"
+                      data-bs-toggle="collapse" data-bs-target="#phase{{ loop.index }}">
+                <i class="bi bi-chevron-down"></i>
+              </button>
+            </div>
+          </div>
+
+          <div id="phase{{ loop.index }}" class="collapse show">
+            <div class="phase-body p-3">
+              <p class="phase-goal mb-3">🎯 <em>{{ phase.goal }}</em></p>
+
+              <div class="row g-3">
+                <!-- Topics -->
+                <div class="col-md-4">
+                  <div class="phase-section-title"><i class="bi bi-book-fill text-accent me-1"></i>Topics</div>
+                  <ul class="phase-list">
+                    {% for t in phase.topics %}<li>{{ t }}</li>{% endfor %}
+                  </ul>
+                </div>
+
+                <!-- Milestones -->
+                <div class="col-md-4">
+                  <div class="phase-section-title"><i class="bi bi-flag-fill text-warning me-1"></i>Milestones</div>
+                  <ul class="phase-list checkable" id="milestones_{{ loop.index }}">
+                    {% for m in phase.milestones %}
+                      <li class="milestone-item" onclick="toggleMilestone(this)">
+                        <i class="bi bi-circle me-2"></i>{{ m }}
+                      </li>
+                    {% endfor %}
+                  </ul>
+                </div>
+
+                <!-- Projects -->
+                <div class="col-md-4">
+                  <div class="phase-section-title"><i class="bi bi-code-slash text-success me-1"></i>Projects</div>
+                  <ul class="phase-list">
+                    {% for p in phase.projects %}<li>{{ p }}</li>{% endfor %}
+                  </ul>
+                </div>
+              </div>
+
+              <!-- Resources table -->
+              {% if phase.resources %}
+              <div class="mt-3">
+                <div class="phase-section-title mb-2">
+                  <i class="bi bi-link-45deg text-purple me-1"></i>Resources
+                </div>
+                <div class="resources-grid">
+                  {% for r in phase.resources %}
+                    <div class="resource-card">
+                      <div class="resource-type-badge
+                           {% if r.type == 'Course' %}type-course
+                           {% elif r.type == 'Project' %}type-project
+                           {% else %}type-other{% endif %}">
+                        {{ r.type }}
+                      </div>
+                      <div class="resource-title">{{ r.title }}</div>
+                      <div class="resource-meta">
+                        <span>{{ r.platform }}</span>
+                        <span>{{ r.hours }}h</span>
+                        <span class="{{ 'text-success' if r.free else 'text-warning' }}">
+                          {{ 'Free' if r.free else 'Paid' }}
+                        </span>
+                      </div>
+                      <a href="{{ r.url }}" target="_blank" rel="noopener"
+                         class="btn btn-xs btn-outline-accent mt-2 w-100">
+                        Open Resource <i class="bi bi-box-arrow-up-right ms-1"></i>
+                      </a>
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    <!-- Skill gaps & certifications -->
+    <div class="row g-4 mb-4">
+      <div class="col-md-6">
+        <div class="card-panel glass animate-in" style="--delay:.6s">
+          <div class="panel-header">
+            <h5 class="panel-title"><i class="bi bi-exclamation-triangle-fill me-2 text-warning"></i>Skill Gaps</h5>
+          </div>
+          <div class="panel-body">
+            {% for gap in roadmap.skill_gaps | default([]) %}
+              <div class="skill-gap-tag">{{ gap }}</div>
+            {% else %}
+              <p class="text-muted small">No skill gaps identified yet.</p>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card-panel glass animate-in" style="--delay:.65s">
+          <div class="panel-header">
+            <h5 class="panel-title"><i class="bi bi-patch-check-fill me-2 text-success"></i>Recommended Certifications</h5>
+          </div>
+          <div class="panel-body">
+            {% for cert in roadmap.certifications | default([]) %}
+              <div class="cert-item">
+                <div class="cert-name">{{ cert.name }}</div>
+                <div class="cert-meta">{{ cert.provider }} · {{ cert.level }}</div>
+              </div>
+            {% else %}
+              <p class="text-muted small">No certifications listed.</p>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Weekly plan -->
+    {% if roadmap.weekly_plan %}
+    <div class="card-panel glass animate-in mb-4" style="--delay:.70s">
+      <div class="panel-header">
+        <h5 class="panel-title"><i class="bi bi-calendar3 me-2 text-accent"></i>Weekly Study Plan</h5>
+      </div>
+      <div class="panel-body">
+        <div class="weekly-plan-grid">
+          {% for day, task in roadmap.weekly_plan.items() %}
+            <div class="wplan-cell">
+              <div class="wplan-day">{{ day | capitalize }}</div>
+              <div class="wplan-task">{{ task }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% endif %}{# end if roadmap #}
+  </div>{# end roadmapContent #}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/roadmap.js') }}"></script>
+<script>
+// Pass roadmap data to JS
+window.ROADMAP_DATA = {{ roadmap | tojson if roadmap else 'null' }};
+</script>
+{% endblock %}
