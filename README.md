@@ -97,7 +97,7 @@ FLASK_SECRET_KEY=your_random_secret_key
 python app.py
 ```
 
-Open your browser at **http://localhost:5000**
+Open your browser at **http://127.0.0.1:5000/**
 
 ---
 
