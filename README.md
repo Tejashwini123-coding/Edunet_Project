@@ -133,7 +133,6 @@ All agent behaviour is controlled by the `AGENT_INSTRUCTIONS` dictionary at the 
 | `adaptive_rules` | How it adjusts to student progress |
 | `output_format` | Response structure, length, JSON format |
 
-**No other file needs to be changed for behavioural customisation.**
 
 ---
 
