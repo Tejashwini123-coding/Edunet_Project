@@ -84,7 +84,7 @@ cp .env.example .env
 Open `.env` and fill in your credentials:
 
 ```env
-IBM_API_KEY=your_ibm_cloud_api_key_here
+IBM_API_KEY=3A6r1aLOmf22Rqs19ybY5aBROrUyh9g_2dsU5hyPpOXs
 WATSONX_PROJECT_ID=your_watsonx_project_id_here
 WATSONX_URL=https://us-south.ml.cloud.ibm.com
 WATSONX_MODEL_ID=ibm/granite-3-3-8b-instruct
